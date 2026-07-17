@@ -46,6 +46,7 @@ def display_overall_assessment(
 
     company = startup_record["company"]
     metrics = startup_record["calculated_metrics"]
+    compliance_result = scoring_result["compliance_result"]
 
     st.title("Startup Due-Diligence Analysis")
 
@@ -66,7 +67,7 @@ def display_overall_assessment(
 
     with overview_col2:
         st.metric(
-            label="Risk Level",
+            label="Overall Risk Level",
             value=scoring_result["risk_level"],
         )
 
@@ -77,27 +78,19 @@ def display_overall_assessment(
         )
 
     with overview_col4:
-        runway = metrics["cash_runway_months"]
-
-        if runway is None:
-            runway_text = "No Current Burn"
-        else:
-            runway_text = f"{runway:.1f} months"
-
         st.metric(
-            label="Cash Runway",
-            value=runway_text,
+            label="FinTech Compliance",
+            value=f"{compliance_result['compliance_score']}/100",
         )
 
     st.subheader("Investment Recommendation")
 
     recommendation = scoring_result["investment_recommendation"]
+    overall_score = scoring_result["overall_score"]
 
-    if scoring_result["overall_score"] >= 80:
+    if overall_score >= 65:
         st.success(recommendation)
-    elif scoring_result["overall_score"] >= 65:
-        st.success(recommendation)
-    elif scoring_result["overall_score"] >= 50:
+    elif overall_score >= 50:
         st.warning(recommendation)
     else:
         st.error(recommendation)
@@ -252,6 +245,142 @@ def display_financial_snapshot(
             ),
         )
 
+    runway = metrics["cash_runway_months"]
+
+    if runway is None:
+        runway_text = "No Current Burn"
+    else:
+        runway_text = f"{runway:.1f} months"
+
+    st.metric(
+        label="Cash Runway",
+        value=runway_text,
+    )
+
+
+def display_compliance_assessment(
+    scoring_result: dict[str, Any],
+) -> None:
+    """
+    Display the detailed FinTech compliance assessment.
+    """
+
+    st.subheader("FinTech Compliance Assessment")
+
+    compliance_result = scoring_result["compliance_result"]
+
+    compliance_col1, compliance_col2, compliance_col3 = st.columns(3)
+
+    with compliance_col1:
+        st.metric(
+            label="Compliance Score",
+            value=f"{compliance_result['compliance_score']}/100",
+        )
+
+    with compliance_col2:
+        st.metric(
+            label="Compliance Risk",
+            value=compliance_result["risk_level"],
+        )
+
+    with compliance_col3:
+        st.metric(
+            label="Compliance Status",
+            value=compliance_result["compliance_status"],
+        )
+
+    st.markdown("#### Compliance Category Scores")
+
+    category_scores = compliance_result["category_scores"]
+    maximum_scores = compliance_result["category_max_scores"]
+
+    compliance_chart_data = pd.DataFrame(
+        {
+            "Category": list(category_scores.keys()),
+            "Score": list(category_scores.values()),
+            "Maximum Score": [
+                maximum_scores[category]
+                for category in category_scores
+            ],
+        }
+    )
+
+    figure = px.bar(
+        compliance_chart_data,
+        x="Category",
+        y="Score",
+        text="Score",
+        title="FinTech Compliance Category Assessment",
+    )
+
+    figure.update_traces(
+        textposition="outside",
+    )
+
+    figure.update_layout(
+        xaxis_title="",
+        yaxis_title="Compliance Points",
+        height=500,
+    )
+
+    st.plotly_chart(
+        figure,
+        use_container_width=True,
+    )
+
+    percentage_data = []
+
+    for category, score in category_scores.items():
+        maximum_score = maximum_scores[category]
+
+        percentage_score = (
+            score / maximum_score
+        ) * 100 if maximum_score > 0 else 0
+
+        percentage_data.append(
+            {
+                "Compliance Area": category,
+                "Score": score,
+                "Maximum Score": maximum_score,
+                "Percentage": round(percentage_score, 2),
+            }
+        )
+
+    st.dataframe(
+        percentage_data,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    warning_col, positive_col = st.columns(2)
+
+    with warning_col:
+        st.markdown("#### Compliance Concerns")
+
+        warnings = compliance_result["warnings"]
+
+        if not warnings:
+            st.success(
+                "No major FinTech compliance concern was identified."
+            )
+        else:
+            for warning in warnings:
+                st.warning(warning)
+
+    with positive_col:
+        st.markdown("#### Positive Compliance Findings")
+
+        positive_findings = compliance_result["positive_findings"]
+
+        if not positive_findings:
+            st.info(
+                "No positive compliance control was confirmed "
+                "from the provided information."
+            )
+        else:
+            for finding in positive_findings:
+                st.success(finding)
+
 
 def display_financial_warnings(
     startup_record: dict[str, Any],
@@ -318,6 +447,46 @@ def display_scoring_methodology(
             hide_index=True,
         )
 
+        st.markdown("#### Legal and Compliance Calculation")
+
+        st.write(
+            """
+            The Legal & Compliance score combines the startup's general
+            legal readiness with its detailed FinTech compliance readiness.
+            """
+        )
+
+        legal_breakdown = scoring_result["legal_compliance_breakdown"]
+
+        legal_methodology_data = [
+            {
+                "Component": "General Legal Readiness",
+                "Component Score": legal_breakdown["legal_score"],
+                "Weight": "35%",
+                "Contribution": round(
+                    legal_breakdown["legal_score"] * 0.35,
+                    2,
+                ),
+            },
+            {
+                "Component": "FinTech Compliance Readiness",
+                "Component Score": legal_breakdown[
+                    "fintech_compliance_score"
+                ],
+                "Weight": "65%",
+                "Contribution": round(
+                    legal_breakdown["fintech_compliance_score"] * 0.65,
+                    2,
+                ),
+            },
+        ]
+
+        st.dataframe(
+            legal_methodology_data,
+            use_container_width=True,
+            hide_index=True,
+        )
+
         st.info(
             """
             This score is an analytical prototype designed to support
@@ -375,6 +544,10 @@ def main() -> None:
     st.divider()
 
     display_financial_snapshot(startup_record)
+
+    st.divider()
+
+    display_compliance_assessment(scoring_result)
 
     st.divider()
 

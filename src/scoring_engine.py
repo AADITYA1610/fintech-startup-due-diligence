@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from src.compliance_engine import calculate_compliance_score
 
 
 CATEGORY_WEIGHTS = {
@@ -639,12 +640,15 @@ def get_risk_level(overall_score: float) -> str:
 
     return "Critical"
 
-
 def calculate_due_diligence_scores(
     startup_record: dict[str, Any],
 ) -> dict[str, Any]:
     """
     Calculate all category scores and the weighted overall score.
+
+    The Legal & Compliance category combines:
+    - 35% general legal readiness
+    - 65% detailed FinTech compliance readiness
     """
 
     financial_score = startup_record["calculated_metrics"].get(
@@ -672,9 +676,34 @@ def calculate_due_diligence_scores(
         startup_record["funding"]
     )
 
+    # General legal readiness from the original legal section.
     legal_score = calculate_legal_score(
-        legal=startup_record["legal_and_compliance"],
-        company=startup_record["company"],
+        legal=startup_record.get(
+            "legal_and_compliance",
+            {},
+        ),
+        company=startup_record.get(
+            "company",
+            {},
+        ),
+    )
+
+    # Detailed FinTech compliance assessment.
+    compliance_result = calculate_compliance_score(
+        startup_record.get(
+            "compliance",
+            {},
+        )
+    )
+
+    fintech_compliance_score = compliance_result[
+        "compliance_score"
+    ]
+
+    # Combine general legal readiness and FinTech compliance.
+    combined_legal_compliance_score = clamp_score(
+        (legal_score * 0.35)
+        + (fintech_compliance_score * 0.65)
     )
 
     category_scores = {
@@ -684,11 +713,12 @@ def calculate_due_diligence_scores(
         "Market Opportunity": market_score,
         "Customers & Traction": customer_score,
         "Funding Position": funding_score,
-        "Legal & Compliance": legal_score,
+        "Legal & Compliance": combined_legal_compliance_score,
     }
 
     overall_score = sum(
-        category_scores[category] * CATEGORY_WEIGHTS[category]
+        category_scores[category]
+        * CATEGORY_WEIGHTS[category]
         for category in category_scores
     )
 
@@ -702,4 +732,10 @@ def calculate_due_diligence_scores(
         "investment_recommendation": (
             get_investment_recommendation(overall_score)
         ),
+        "compliance_result": compliance_result,
+        "legal_compliance_breakdown": {
+            "legal_score": legal_score,
+            "fintech_compliance_score": fintech_compliance_score,
+            "combined_score": combined_legal_compliance_score,
+        },
     }
