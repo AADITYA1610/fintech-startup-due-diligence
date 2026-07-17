@@ -315,12 +315,19 @@ def main() -> None:
             ]
         )
 
-        financial_tab, customer_tab, funding_tab, legal_tab = st.tabs(
+        (
+            financial_tab,
+            customer_tab,
+            funding_tab,
+            legal_tab,
+            compliance_tab,
+        ) = st.tabs(
             [
                 "Financial",
                 "Customers",
                 "Funding",
                 "Legal & Risks",
+                "FinTech Compliance",
             ]
         )
 
@@ -1049,6 +1056,139 @@ def main() -> None:
                     ],
                 )
 
+
+
+        # ---------------------------------------------------------
+        # FINTECH REGULATORY AND COMPLIANCE INFORMATION
+        # ---------------------------------------------------------
+        with compliance_tab:
+            st.subheader("Regulatory and Compliance Details")
+
+            st.caption(
+                "Provide information about the startup's regulatory, "
+                "KYC, AML, security, fraud-prevention and privacy controls."
+            )
+
+            st.markdown("#### Regulatory Readiness")
+
+            regulatory_col1, regulatory_col2 = st.columns(2)
+
+            with regulatory_col1:
+                regulator_identified = st.checkbox(
+                    "Applicable financial regulator identified"
+                )
+
+                regulatory_registration = st.checkbox(
+                    "Regulatory registration completed"
+                )
+
+            with regulatory_col2:
+                required_licenses = st.checkbox(
+                    "Required licences are available"
+                )
+
+                regulatory_penalties = st.number_input(
+                    "Number of regulatory penalties",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                )
+
+            st.markdown("#### KYC and AML")
+
+            kyc_col1, kyc_col2 = st.columns(2)
+
+            with kyc_col1:
+                kyc_implemented = st.checkbox(
+                    "KYC process implemented"
+                )
+
+                aml_implemented = st.checkbox(
+                    "AML controls implemented"
+                )
+
+            with kyc_col2:
+                transaction_monitoring = st.checkbox(
+                    "Transaction monitoring available"
+                )
+
+                suspicious_activity_process = st.checkbox(
+                    "Suspicious activity review process available"
+                )
+
+            st.markdown("#### Data Security")
+
+            security_col1, security_col2 = st.columns(2)
+
+            with security_col1:
+                data_encryption = st.checkbox(
+                    "Sensitive data is encrypted"
+                )
+
+                security_audit = st.checkbox(
+                    "Security audit completed"
+                )
+
+                pci_dss_compliant = st.checkbox(
+                    "PCI-DSS compliance available"
+                )
+
+            with security_col2:
+                access_controls = st.checkbox(
+                    "Role-based access controls implemented"
+                )
+
+                incident_response_plan = st.checkbox(
+                    "Security incident response plan available"
+                )
+
+            st.markdown("#### Fraud Prevention")
+
+            fraud_col1, fraud_col2 = st.columns(2)
+
+            with fraud_col1:
+                fraud_detection = st.checkbox(
+                    "Fraud-detection system implemented"
+                )
+
+                fraud_team = st.checkbox(
+                    "Dedicated fraud or risk team"
+                )
+
+            with fraud_col2:
+                fraud_incidents = st.number_input(
+                    "Number of reported fraud incidents",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                )
+
+            st.markdown("#### Privacy")
+
+            privacy_col1, privacy_col2 = st.columns(2)
+
+            with privacy_col1:
+                privacy_policy = st.checkbox(
+                    "Privacy policy available"
+                )
+
+                customer_consent = st.checkbox(
+                    "Customer consent is collected"
+                )
+
+            with privacy_col2:
+                data_retention_policy = st.checkbox(
+                    "Data-retention policy available"
+                )
+
+                data_breaches = st.number_input(
+                    "Number of historical data breaches",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                )
+
+
         st.divider()
 
         submit_button = st.form_submit_button(
@@ -1197,6 +1337,29 @@ def main() -> None:
                 ),
                 "data_security_measures": data_security_measures,
                 "legal_issue_details": legal_issue_details.strip(),
+            },
+
+            "compliance": {
+                "regulator_identified": regulator_identified,
+                "regulatory_registration": regulatory_registration,
+                "required_licenses": required_licenses,
+                "regulatory_penalties": regulatory_penalties,
+                "kyc_implemented": kyc_implemented,
+                "aml_implemented": aml_implemented,
+                "transaction_monitoring": transaction_monitoring,
+                "suspicious_activity_process": suspicious_activity_process,
+                "data_encryption": data_encryption,
+                "security_audit": security_audit,
+                "pci_dss_compliant": pci_dss_compliant,
+                "access_controls": access_controls,
+                "incident_response_plan": incident_response_plan,
+                "fraud_detection": fraud_detection,
+                "fraud_team": fraud_team,
+                "fraud_incidents": fraud_incidents,
+                "privacy_policy": privacy_policy,
+                "customer_consent": customer_consent,
+                "data_retention_policy": data_retention_policy,
+                "data_breaches": data_breaches,
             },
             "initial_risks": {
                 "financial_risk": financial_risk_indicator,
