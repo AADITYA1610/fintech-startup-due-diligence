@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 import streamlit as st
+
+from src.financial_metrics import calculate_all_financial_metrics
 
 
 st.set_page_config(
@@ -22,46 +25,6 @@ def initialize_session_state() -> None:
         st.session_state.startup_records = []
 
 
-def calculate_profit_loss(
-    monthly_revenue: float,
-    monthly_expenses: float,
-) -> float:
-    """Calculate monthly profit or loss."""
-
-    return monthly_revenue - monthly_expenses
-
-
-def calculate_burn_rate(
-    monthly_revenue: float,
-    monthly_expenses: float,
-) -> float:
-    """
-    Calculate monthly burn rate.
-
-    Burn rate is considered zero when revenue is greater
-    than or equal to expenses.
-    """
-
-    return max(monthly_expenses - monthly_revenue, 0.0)
-
-
-def calculate_cash_runway(
-    cash_balance: float,
-    burn_rate: float,
-) -> float | None:
-    """
-    Calculate the number of months the startup can continue
-    operating with its current cash balance.
-
-    None is returned when there is no monthly burn.
-    """
-
-    if burn_rate <= 0:
-        return None
-
-    return cash_balance / burn_rate
-
-
 def validate_startup_data(
     company_name: str,
     industry: str,
@@ -72,7 +35,7 @@ def validate_startup_data(
 ) -> list[str]:
     """Validate important startup fields."""
 
-    errors = []
+    errors: list[str] = []
 
     if not company_name.strip():
         errors.append("Company name is required.")
@@ -95,11 +58,74 @@ def validate_startup_data(
     return errors
 
 
-def display_saved_record(record: dict) -> None:
-    """Display a summary of the newly saved startup."""
+def format_currency(value: float | int | None) -> str:
+    """
+    Format a numeric value as Indian rupee currency.
+    """
+
+    if value is None:
+        return "Not Available"
+
+    return f"₹{value:,.2f}"
+
+
+def format_ratio(value: float | None) -> str:
+    """
+    Format a ratio value to two decimal places.
+    """
+
+    if value is None:
+        return "Not Available"
+
+    return f"{value:.2f}"
+
+
+def format_percentage(value: float | None) -> str:
+    """
+    Format a percentage value.
+    """
+
+    if value is None:
+        return "Not Available"
+
+    return f"{value:.2f}%"
+
+
+def display_financial_warnings(warnings: list[str]) -> None:
+    """
+    Display financial warnings returned by the analysis engine.
+    """
+
+    if not warnings:
+        st.success(
+            "No major financial warning was identified "
+            "from the entered data."
+        )
+        return
+
+    st.warning(
+        f"{len(warnings)} financial concern(s) were identified."
+    )
+
+    for warning in warnings:
+        st.write(f"- {warning}")
+
+
+def display_saved_record(record: dict[str, Any]) -> None:
+    """
+    Display a complete summary of the newly saved startup.
+    """
+
+    company = record["company"]
+    financial = record["financial"]
+    customers = record["customers"]
+    metrics = record["calculated_metrics"]
 
     st.success("Startup information saved successfully.")
 
+    # ---------------------------------------------------------
+    # BASIC STARTUP SUMMARY
+    # ---------------------------------------------------------
     st.subheader("Saved Startup Summary")
 
     summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
@@ -107,23 +133,56 @@ def display_saved_record(record: dict) -> None:
     with summary_col1:
         st.metric(
             label="Company",
-            value=record["company"]["company_name"],
+            value=company["company_name"],
         )
 
     with summary_col2:
         st.metric(
-            label="Monthly Revenue",
-            value=f"₹{record['financial']['monthly_revenue']:,.2f}",
+            label="Industry",
+            value=company["industry"],
         )
 
     with summary_col3:
         st.metric(
-            label="Monthly Profit/Loss",
-            value=f"₹{record['calculated_metrics']['profit_loss']:,.2f}",
+            label="Monthly Revenue",
+            value=format_currency(financial["monthly_revenue"]),
         )
 
     with summary_col4:
-        runway = record["calculated_metrics"]["cash_runway_months"]
+        st.metric(
+            label="Monthly Profit/Loss",
+            value=format_currency(metrics["profit_loss"]),
+        )
+
+    st.divider()
+
+    # ---------------------------------------------------------
+    # FINANCIAL HEALTH SUMMARY
+    # ---------------------------------------------------------
+    st.subheader("Financial Health Assessment")
+
+    health_col1, health_col2, health_col3, health_col4 = st.columns(4)
+
+    with health_col1:
+        st.metric(
+            label="Financial Health Score",
+            value=f"{metrics['financial_health_score']}/100",
+        )
+
+    with health_col2:
+        st.metric(
+            label="Financial Health",
+            value=metrics["financial_health_label"],
+        )
+
+    with health_col3:
+        st.metric(
+            label="Monthly Burn Rate",
+            value=format_currency(metrics["burn_rate"]),
+        )
+
+    with health_col4:
+        runway = metrics["cash_runway_months"]
 
         if runway is None:
             runway_text = "No Current Burn"
@@ -135,7 +194,92 @@ def display_saved_record(record: dict) -> None:
             value=runway_text,
         )
 
-    with st.expander("View complete saved information"):
+    # ---------------------------------------------------------
+    # FINANCIAL RATIOS
+    # ---------------------------------------------------------
+    st.markdown("#### Important Financial Ratios")
+
+    ratio_col1, ratio_col2, ratio_col3, ratio_col4 = st.columns(4)
+
+    with ratio_col1:
+        st.metric(
+            label="Profit Margin",
+            value=format_percentage(
+                metrics["profit_margin_percentage"]
+            ),
+            help=(
+                "Profit or loss expressed as a percentage "
+                "of monthly revenue."
+            ),
+        )
+
+    with ratio_col2:
+        st.metric(
+            label="Current Ratio",
+            value=format_ratio(metrics["current_ratio"]),
+            help=(
+                "Current assets divided by current liabilities. "
+                "A value above 1 generally means current assets "
+                "are greater than current liabilities."
+            ),
+        )
+
+    with ratio_col3:
+        st.metric(
+            label="Debt-to-Equity",
+            value=format_ratio(metrics["debt_to_equity_ratio"]),
+            help=(
+                "Total debt divided by total equity. "
+                "A lower value generally indicates lower dependence "
+                "on borrowed money."
+            ),
+        )
+
+    with ratio_col4:
+        st.metric(
+            label="Revenue/Expense Ratio",
+            value=format_ratio(metrics["revenue_expense_ratio"]),
+            help=(
+                "Monthly revenue divided by monthly expenses. "
+                "A value above 1 means revenue exceeds expenses."
+            ),
+        )
+
+    customer_ratio_col1, customer_ratio_col2 = st.columns(2)
+
+    with customer_ratio_col1:
+        st.metric(
+            label="LTV-to-CAC Ratio",
+            value=format_ratio(metrics["ltv_cac_ratio"]),
+            help=(
+                "Customer lifetime value divided by customer "
+                "acquisition cost."
+            ),
+        )
+
+    with customer_ratio_col2:
+        st.metric(
+            label="Customer Churn Rate",
+            value=format_percentage(customers["churn_rate"]),
+            help=(
+                "The percentage of customers lost during "
+                "the measurement period."
+            ),
+        )
+
+    # ---------------------------------------------------------
+    # WARNINGS
+    # ---------------------------------------------------------
+    st.markdown("#### Financial Concerns")
+
+    display_financial_warnings(
+        metrics["financial_warnings"]
+    )
+
+    # ---------------------------------------------------------
+    # COMPLETE INFORMATION
+    # ---------------------------------------------------------
+    with st.expander("View complete saved startup information"):
         st.json(record)
 
 
@@ -931,19 +1075,19 @@ def main() -> None:
 
             return
 
-        profit_loss = calculate_profit_loss(
+        financial_metrics = calculate_all_financial_metrics(
             monthly_revenue=monthly_revenue,
             monthly_expenses=monthly_expenses,
-        )
-
-        burn_rate = calculate_burn_rate(
-            monthly_revenue=monthly_revenue,
-            monthly_expenses=monthly_expenses,
-        )
-
-        cash_runway = calculate_cash_runway(
             cash_balance=cash_balance,
-            burn_rate=burn_rate,
+            current_assets=current_assets,
+            current_liabilities=current_liabilities,
+            total_debt=total_debt,
+            total_equity=total_equity,
+            revenue_growth_rate=revenue_growth_rate,
+            customer_lifetime_value=customer_lifetime_value,
+            customer_acquisition_cost=customer_acquisition_cost,
+            churn_rate=churn_rate,
+            financial_records_available=financial_records_available,
         )
 
         startup_record = {
@@ -962,7 +1106,9 @@ def main() -> None:
             "founders_and_team": {
                 "founder_count": founder_count,
                 "founder_experience_years": founder_experience_years,
-                "previous_startup_experience": previous_startup_experience,
+                "previous_startup_experience": (
+                    previous_startup_experience
+                ),
                 "industry_experience_years": industry_experience,
                 "technical_team_strength": technical_team_strength,
                 "business_team_strength": business_team_strength,
@@ -1046,7 +1192,9 @@ def main() -> None:
                 "employee_agreements": employee_agreements,
                 "pending_lawsuits": pending_lawsuits,
                 "regulatory_issues": regulatory_issues,
-                "privacy_policy_available": privacy_policy_available,
+                "privacy_policy_available": (
+                    privacy_policy_available
+                ),
                 "data_security_measures": data_security_measures,
                 "legal_issue_details": legal_issue_details.strip(),
             },
@@ -1058,11 +1206,7 @@ def main() -> None:
                 "legal_risk": legal_risk_indicator,
                 "customer_risk": customer_risk_indicator,
             },
-            "calculated_metrics": {
-                "profit_loss": profit_loss,
-                "burn_rate": burn_rate,
-                "cash_runway_months": cash_runway,
-            },
+            "calculated_metrics": financial_metrics,
         }
 
         st.session_state.startup_records.append(startup_record)
