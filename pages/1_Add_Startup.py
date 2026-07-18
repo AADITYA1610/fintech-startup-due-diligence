@@ -6,6 +6,9 @@ from typing import Any
 import streamlit as st
 
 from src.financial_metrics import calculate_all_financial_metrics
+from src.recommendations import generate_recommendation_report
+from src.risk_analysis import generate_risk_report
+from src.scoring_engine import calculate_due_diligence_scores
 
 
 st.set_page_config(
@@ -17,13 +20,17 @@ st.set_page_config(
 
 def initialize_session_state() -> None:
     """
-    Create the startup_records list when the application
-    runs for the first time.
+    Initialize shared startup and analysis session data.
     """
 
     if "startup_records" not in st.session_state:
         st.session_state.startup_records = []
 
+    if "analysis_history" not in st.session_state:
+        st.session_state.analysis_history = []
+
+    if "latest_analysis" not in st.session_state:
+        st.session_state.latest_analysis = None
 
 def validate_startup_data(
     company_name: str,
@@ -1372,9 +1379,103 @@ def main() -> None:
             "calculated_metrics": financial_metrics,
         }
 
-        st.session_state.startup_records.append(startup_record)
+        try:
+            with st.spinner(
+                "Running complete startup due-diligence analysis..."
+            ):
+                # -------------------------------------------------
+                # CATEGORY SCORING AND COMPLIANCE ANALYSIS
+                # -------------------------------------------------
+                scoring_result = calculate_due_diligence_scores(
+                    startup_record
+                )
 
-        display_saved_record(startup_record)
+                # -------------------------------------------------
+                # CONSOLIDATED RISK ANALYSIS
+                # -------------------------------------------------
+                risk_report = generate_risk_report(
+                    startup_record=startup_record,
+                    scoring_result=scoring_result,
+                )
+
+                # -------------------------------------------------
+                # INVESTMENT RECOMMENDATION
+                # -------------------------------------------------
+                recommendation_report = (
+                    generate_recommendation_report(
+                        startup_record=startup_record,
+                        scoring_result=scoring_result,
+                        risk_report=risk_report,
+                    )
+                )
+
+                # -------------------------------------------------
+                # COMPLETE ANALYSIS RECORD
+                # -------------------------------------------------
+                analysis_record = {
+                    "startup_record": startup_record,
+                    "scoring_result": scoring_result,
+                    "risk_report": risk_report,
+                    "recommendation_report": (
+                        recommendation_report
+                    ),
+                }
+
+                # Save startup data for the analysis selector.
+                st.session_state.startup_records.append(
+                    startup_record
+                )
+
+                # Save complete analysis for dashboard and reports.
+                st.session_state.analysis_history.append(
+                    analysis_record
+                )
+
+                # Make this analysis available as the latest result.
+                st.session_state.latest_analysis = (
+                    analysis_record
+                )
+
+            display_saved_record(startup_record)
+
+            st.success(
+                "Financial scoring, compliance analysis, risk "
+                "assessment and investment recommendation were "
+                "generated successfully."
+            )
+
+            recommendation_col1, recommendation_col2 = (
+                st.columns(2)
+            )
+
+            with recommendation_col1:
+                st.metric(
+                    label="Overall Due-Diligence Score",
+                    value=(
+                        f"{scoring_result['overall_score']:.2f}/100"
+                    ),
+                )
+
+            with recommendation_col2:
+                st.metric(
+                    label="Investment Decision",
+                    value=recommendation_report[
+                        "investment_decision"
+                    ],
+                )
+
+            st.page_link(
+                "pages/2_Startup_Analysis.py",
+                label="Open Complete Startup Analysis",
+                icon="📊",
+            )
+
+        except Exception as error:
+            st.error(
+                "The startup record could not be fully analysed."
+            )
+
+            st.exception(error)
 
     st.divider()
 
